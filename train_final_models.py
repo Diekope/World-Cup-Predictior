@@ -640,11 +640,21 @@ Ce rapport présente l'analyse des modèles de prédiction après intégration d
 3.  **Ensemble Blending** :
     *   Le modèle hybride (Mix) n'utilise plus une simple moyenne 50/50 arbitraire. Le poids optimal sur l'historique de validation 2022 a été résolu à **{best_w_dc:.2f}** pour Dixon-Coles et **{1.0-best_w_dc:.2f}** pour le H2H avec Forme.
 
-Tous les paramètres ont été exportés sous format JSON dans [final_model_parameters.json](file:///Users/ValQuiTravaille/Projects/world_cup/data_copy/final_model_parameters.json) et injectés dans l'application web.
+Tous les paramètres ont été exportés sous format JSON dans [final_model_parameters.json](data_copy/final_model_parameters.json) et injectés dans l'application web.
 """
 
-artifact_dir = "/Users/ValQuiTravaille/.gemini/antigravity-cli/brain/f9c12095-c6c3-4559-95c6-e76887ec3d8e"
-final_report_path = os.path.join(artifact_dir, "final_models_comparison.md")
+# Save report locally to the workspace root for Git tracking
+final_report_path = "final_models_comparison.md"
 with open(final_report_path, "w", encoding="utf-8") as f:
     f.write(comparison_report)
+
+# Optionally copy to brain artifact directory if it exists on the local machine
+artifact_dir = os.path.expanduser("~/.gemini/antigravity-cli/brain/f9c12095-c6c3-4559-95c6-e76887ec3d8e")
+if os.path.exists(artifact_dir):
+    try:
+        with open(os.path.join(artifact_dir, "final_models_comparison.md"), "w", encoding="utf-8") as f:
+            f.write(comparison_report)
+    except Exception:
+        pass
+
 print("H2H training finished successfully.")
