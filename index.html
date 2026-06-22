@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLOOMBERG WC26 TERMINAL - SIMULATEUR</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Use Bloomberg-like clean high-readability font and Monospace for digits -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="terminal-container">
+        <!-- Terminal Header -->
+        <header class="terminal-header">
+            <div class="header-left">
+                <span class="ticker-light"></span>
+                <span class="terminal-title">BBG WC26.TERM <span class="blink">_</span></span>
+            </div>
+            <div class="header-center">
+                <span class="status-badge connect">SYS: OK</span>
+                <span class="status-badge mode">MODE: SIMULATOR</span>
+                <span class="status-badge rate">MODEL: POISSON_GD</span>
+            </div>
+            <div class="header-right">
+                <span id="live-clock" class="mono">2026-06-21 17:42:08</span>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="terminal-nav">
+            <button class="nav-tab active" id="tab-simulations">[ 1 ] RUN SIMULATIONS</button>
+            <button class="nav-tab" id="tab-tournament">[ 2 ] PHASES DU TOURNOI</button>
+            <button class="nav-tab" id="tab-stats">[ 3 ] CHERCHER STATISTIQUES</button>
+            <button class="nav-tab" id="tab-comparison">[ 4 ] COMPARATEUR DE MODÈLES</button>
+            <button class="nav-tab" id="tab-betting">[ 5 ] ASSISTANT DE PARIS</button>
+            <button class="nav-tab" id="tab-calendar">[ 6 ] CALENDRIER DU TOURNOI</button>
+        </nav>
+
+        <!-- Main Workspace -->
+        <main class="terminal-workspace" id="view-simulations">
+            <!-- Left Panel: Parameters / Controls -->
+            <section class="panel panel-controls">
+                <h2 class="panel-title">> PARAMÈTRES DU MATCH</h2>
+                
+                <div class="control-group">
+                    <label for="select-team1">ÉQUIPE 1 (DOMICILE PAR DÉFAUT)</label>
+                    <select id="select-team1" class="terminal-select"></select>
+                    <div id="team1-stats" class="team-mini-stats mono">Rang: -- | Points: --</div>
+                </div>
+
+                <div class="control-group">
+                    <label for="select-team2">ÉQUIPE 2 (EXTÉRIEUR PAR DÉFAUT)</label>
+                    <select id="select-team2" class="terminal-select"></select>
+                    <div id="team2-stats" class="team-mini-stats mono">Rang: -- | Points: --</div>
+                </div>
+
+                <div class="control-group">
+                    <label>LIEU DE LA CONFRONTATION</label>
+                    <div class="radio-buttons-group">
+                        <button class="radio-btn active" data-value="1" id="btn-neutre">TERRAIN NEUTRE</button>
+                        <button class="radio-btn" data-value="2" id="btn-t1-host">CHEZ EQUIPE 1</button>
+                        <button class="radio-btn" data-value="3" id="btn-t2-host">CHEZ EQUIPE 2</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label for="select-model">MODÈLE DE MACHINE LEARNING</label>
+                    <select id="select-model" class="terminal-select">
+                        <option value="dixon_coles_teams" selected>Dixon-Coles (Attaque/Défense spécifiques)</option>
+                        <option value="rolling_form">Historique Face-à-Face (10 Dernières Confrontations H2H)</option>
+                        <option value="mix_ensemble">Modèle Hybride (Mix Dixon-Coles & H2H)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="select-sim-count">NOMBRE DE SIMULATIONS</label>
+                    <select id="select-sim-count" class="terminal-select">
+                        <option value="100">100 Matchs</option>
+                        <option value="500">500 Matchs</option>
+                        <option value="1000" selected>1 000 Matchs</option>
+                        <option value="5000">5 000 Matchs</option>
+                        <option value="10000">10 000 Matchs</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="select-speed">VITESSE D'ANIMATION</label>
+                    <select id="select-speed" class="terminal-select">
+                        <option value="50">Lente (Détails maximaux)</option>
+                        <option value="10" selected>Normale</option>
+                        <option value="1">Ultra Rapide</option>
+                        <option value="0">Instantanée (Pas d'animation)</option>
+                    </select>
+                </div>
+
+                <button id="btn-run" class="btn-primary">LANCER LA SIMULATION (RUN)</button>
+                <button id="btn-reset" class="btn-secondary">RÉINITIALISER (RESET)</button>
+            </section>
+
+            <!-- Right Panel: Simulation Board -->
+            <section class="panel panel-display">
+                <h2 class="panel-title">> TABLEAU D'AFFICHAGE EN DIRECT</h2>
+                
+                <!-- Live score board -->
+                <div class="score-board">
+                    <div class="score-team" id="disp-team1">
+                        <span class="team-name">EQUIPE A</span>
+                        <span class="team-rank-badge mono" id="disp-rank1">#--</span>
+                    </div>
+                    <div class="score-value-container">
+                        <div class="score-goals mono" id="goals-team1">0</div>
+                        <div class="score-separator">:</div>
+                        <div class="score-goals mono" id="goals-team2">0</div>
+                    </div>
+                    <div class="score-team text-right" id="disp-team2">
+                        <span class="team-rank-badge mono" id="disp-rank2">#--</span>
+                        <span class="team-name">EQUIPE B</span>
+                    </div>
+                </div>
+
+                <!-- ML Insights Scoreboard Panel -->
+                <div class="ml-insights-container">
+                    <div class="insight-badge">
+                        <span class="insight-label">FIABILITÉ PRÉDICTION</span>
+                        <div>
+                            <span class="insight-value mono" id="val-confidence">--%</span>
+                            <span class="insight-level" id="lbl-confidence-level">--</span>
+                        </div>
+                    </div>
+                    <div class="insight-badge">
+                        <span class="insight-label">DOUBLE CHANCE FAVORIS</span>
+                        <span class="insight-value mono" id="val-double-chance">--</span>
+                    </div>
+                </div>
+
+                <!-- Progress block -->
+                <div class="progress-container">
+                    <div class="progress-header">
+                        <span class="mono" id="sim-counter">SIMULATION : 0 / 1000</span>
+                        <span class="mono" id="sim-percentage">0%</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+
+                <!-- Board Layout -->
+                <div class="display-grid">
+                    <!-- Left: Outcomes probabilities -->
+                    <div class="card card-outcomes">
+                        <h3>> PROBABILITÉS D'ISSUE (1N2)</h3>
+                        
+                        <div class="outcome-bar-group">
+                            <div class="bar-labels">
+                                <span id="label-win1">VICTOIRE EQUIPE A</span>
+                                <span class="mono" id="pct-win1">0.0%</span>
+                            </div>
+                            <div class="bar-container">
+                                <div class="bar-fill win1" id="fill-win1"></div>
+                            </div>
+                        </div>
+
+                        <div class="outcome-bar-group">
+                            <div class="bar-labels">
+                                <span>MATCH NUL</span>
+                                <span class="mono" id="pct-draw">0.0%</span>
+                            </div>
+                            <div class="bar-container">
+                                <div class="bar-fill draw" id="fill-draw"></div>
+                            </div>
+                        </div>
+
+                        <div class="outcome-bar-group">
+                            <div class="bar-labels">
+                                <span id="label-win2">VICTOIRE EQUIPE B</span>
+                                <span class="mono" id="pct-win2">0.0%</span>
+                            </div>
+                            <div class="bar-container">
+                                <div class="bar-fill win2" id="fill-win2"></div>
+                            </div>
+                        </div>
+
+                        <div class="expected-goals-stats mono">
+                            <div>Espérance buts A (λ): <span id="stat-lambda1">0.00</span></div>
+                            <div>Espérance buts B (λ): <span id="stat-lambda2">0.00</span></div>
+                        </div>
+
+                        <!-- Live Convergence Chart -->
+                        <div style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 8px;">
+                            <h4 style="font-size: 9px; color: var(--bbg-amber); margin-bottom: 5px; text-transform: uppercase;">> CONVERGENCE DES PROBABILITÉS (EN DIRECT)</h4>
+                            <canvas id="convergence-chart" height="90" style="width: 100%; display: block; border: 1px solid var(--border-color); background: #050505;"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Right: Matrix heatmap -->
+                    <div class="card card-matrix">
+                        <h3>> MATRICE DE PROBABILITÉ DES SCORES (HEATMAP)</h3>
+                        <div class="matrix-axis-y-label">BUTS EQUIPE 1</div>
+                        <div class="matrix-wrapper">
+                            <div class="matrix-empty"></div>
+                            <div class="matrix-axis-x">
+                                <div>0</div><div>1</div><div>2</div><div>3</div><div>4</div><div>5+</div>
+                            </div>
+                            
+                            <!-- Rows generated via JS -->
+                            <div id="matrix-grid" class="matrix-grid"></div>
+                            
+                            <div class="matrix-axis-x-label">BUTS EQUIPE 2</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Collapsible Head-to-Head History Panel -->
+                <div id="h2h-history-panel" style="margin-top: 15px; border: 1px solid var(--border-color); background: #000; padding: 10px;">
+                    <div id="h2h-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+                        <span style="font-family: var(--font-mono); font-size: 11px; color: var(--bbg-amber); font-weight: bold;">[+] HISTORIQUE RÉEL DES CONFRONTATIONS DIRECTES</span>
+                        <span id="h2h-toggle-icon" style="font-family: var(--font-mono); font-size: 11px; color: var(--bbg-amber);">[ EXPAND ]</span>
+                    </div>
+                    <div id="h2h-content" style="display: none; margin-top: 10px; max-height: 180px; overflow-y: auto; border-top: 1px dashed var(--border-color); padding-top: 10px;">
+                        <table class="terminal-table" id="h2h-history-table" style="font-size: 10px; width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th>DATE</th>
+                                    <th>CONFRONTATION</th>
+                                    <th class="text-right">SCORE</th>
+                                    <th>COMPÉTITION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="h2h-history-tbody">
+                                <tr><td colspan="4" class="terminal-msg">Veuillez lancer une simulation pour charger l'historique H2H.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Tournament Workspace (Tab 2) -->
+        <main class="terminal-workspace terminal-workspace-hidden" id="view-tournament">
+            <!-- Left Panel: Controls -->
+            <section class="panel panel-controls">
+                <h2 class="panel-title">> RÉSULTAT VISUEL UNIQUE</h2>
+                
+                <div class="control-group">
+                    <label for="tournament-model">MODÈLE DE MACHINE LEARNING</label>
+                    <select id="tournament-model" class="terminal-select">
+                        <option value="dixon_coles_teams" selected>Dixon-Coles (Attaque/Défense spécifiques)</option>
+                        <option value="rolling_form">Historique Face-à-Face (10 Confrontations H2H)</option>
+                        <option value="mix_ensemble">Modèle Hybride (Mix Dixon-Coles & H2H)</option>
+                    </select>
+                </div>
+
+                <button id="btn-run-tournament" class="btn-primary">SIMULER LA COUPE DU MONDE (RUN)</button>
+                <button id="btn-reset-tournament" class="btn-secondary">RÉINITIALISER (RESET)</button>
+            </section>
+
+            <!-- Right Panel: Results display -->
+            <section class="panel panel-display">
+                <h2 class="panel-title" id="tournament-display-title">> PHASES DU TOURNOI DÉTAILLÉES</h2>
+                
+                <div class="tournament-results-container" style="overflow-y: auto; height: calc(100% - 40px); padding: 15px;">
+                    <div id="tournament-initial-msg" class="terminal-msg">
+                        SÉLECTIONNEZ LE MODÈLE ET CLIQUEZ SUR RUN POUR SIMULER LES 104 MATCHS PAR MONTE-CARLO ET VISUALISER LES CLASSEMENTS DE GROUPES ET LE BRACKET.
+                    </div>
+                    
+                    <div id="tournament-group-stage-view" style="display: none; margin-bottom: 40px;">
+                        <!-- Visual group standings and match scores -->
+                    </div>
+                    
+                    <div id="tournament-bracket-view" style="display: none;">
+                        <!-- Visual bracket -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Statistics Workspace (Tab 3) -->
+        <main class="terminal-workspace terminal-workspace-hidden" id="view-stats">
+            <!-- Left Panel: Controls -->
+            <section class="panel panel-controls">
+                <h2 class="panel-title">> ANALYSE STATISTIQUE</h2>
+                
+                <div class="control-group">
+                    <label for="stats-model">MODÈLE DE MACHINE LEARNING</label>
+                    <select id="stats-model" class="terminal-select">
+                        <option value="dixon_coles_teams" selected>Dixon-Coles (Attaque/Défense spécifiques)</option>
+                        <option value="rolling_form">Historique Face-à-Face (10 Confrontations H2H)</option>
+                        <option value="mix_ensemble">Modèle Hybride (Mix Dixon-Coles & H2H)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="stats-sim-count">NOMBRE DE TOURNOIS</label>
+                    <select id="stats-sim-count" class="terminal-select">
+                        <option value="100" selected>100 Tournois (Rapide)</option>
+                        <option value="500">500 Tournois (Conseillé)</option>
+                        <option value="1000">1 000 Tournois (Complet)</option>
+                    </select>
+                </div>
+
+                <button id="btn-run-stats" class="btn-primary">SIMULER LES TOURNOIS (RUN)</button>
+                <button id="btn-reset-stats" class="btn-secondary">RÉINITIALISER (RESET)</button>
+            </section>
+
+            <!-- Right Panel: Results display -->
+            <section class="panel panel-display">
+                <h2 class="panel-title" id="stats-display-title">> TABLEAU DES PROBABILITÉS CUMULÉES</h2>
+                
+                <div class="tournament-results-container" style="overflow-y: auto; height: calc(100% - 40px); padding: 15px;">
+                    <div id="stats-initial-msg" class="terminal-msg">
+                        LANCEZ DES CENTAINES DE SIMULATIONS POUR ANALYSER LES POURCENTAGES DE QUALIFICATION DE CHAQUE PAYS DEPUIS LES POULES JUSQU'AU TITRE.
+                    </div>
+                    
+                    <div id="stats-main-content" style="display: none;">
+                        <!-- Dynamic search filter box -->
+                        <div class="control-group" style="margin-bottom: 20px;">
+                            <label for="search-nation-input" style="color: var(--bbg-amber); font-weight: bold;">FILTRER LA LISTE DES NATIONS (RECHERCHE EN DIRECT) :</label>
+                            <input type="text" id="search-nation-input" placeholder="Entrez le nom d'un pays... (ex: France, Maroc, Canada)" style="background: #000; color: var(--bbg-amber); font-family: var(--font-mono); border: 1px solid var(--border-color); width: 100%; box-sizing: border-box; padding: 8px; font-size: 12px;">
+                        </div>
+
+                        <!-- Aggregate Stats Table -->
+                        <table class="terminal-table" id="stats-table">
+                            <thead>
+                                <tr>
+                                    <th>NATION</th>
+                                    <th class="mono text-right" style="color: var(--bbg-amber);">CHAMPION</th>
+                                    <th class="mono text-right">FINALE</th>
+                                    <th class="mono text-right">DEMI-FINALE</th>
+                                    <th class="mono text-right">QUART-FINALE</th>
+                                    <th class="mono text-right">8E DE FINALE</th>
+                                    <th class="mono text-right">ÉLIM. POULES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stats-tbody"></tbody>
+                        </table>
+
+                        <!-- Explorer panel -->
+                        <div id="stats-explorer-controls" style="margin: 30px 0 20px 0; padding: 15px; border: 1px dashed var(--bbg-amber); background: rgba(255, 159, 10, 0.05);">
+                            <span style="font-family: var(--font-mono); font-size: 12px; color: var(--bbg-amber); font-weight: bold;">> EXPLORER LES DÉTAILS D'UN TIRAGE DU MONTE-CARLO</span>
+                            <div style="margin-top: 10px; display: flex; align-items: center; gap: 15px;">
+                                <label for="select-stats-tourney-index" style="font-family: var(--font-mono); font-size: 11px;">CHOISIR LE NUMÉRO DE SIMULATION :</label>
+                                <select id="select-stats-tourney-index" class="terminal-select" style="width: auto; padding: 3px 10px;"></select>
+                            </div>
+                        </div>
+
+                        <!-- Target elements for Explorer detail rendering -->
+                        <div id="stats-group-stage-view" style="display: none; margin-bottom: 40px;"></div>
+                        <div id="stats-bracket-view" style="display: none;"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Comparison Workspace (Tab 4) -->
+        <main class="terminal-workspace terminal-workspace-hidden" id="view-comparison">
+            <!-- Left Panel: Controls -->
+            <section class="panel panel-controls">
+                <h2 class="panel-title">> COMPARAISON DE MODÈLES</h2>
+                
+                <div class="control-group">
+                    <label for="comparison-sim-count">SIMULATIONS PAR MODÈLE</label>
+                    <select id="comparison-sim-count" class="terminal-select">
+                        <option value="100" selected>100 Tournois (Rapide)</option>
+                        <option value="250">250 Tournois (Recommandé)</option>
+                        <option value="500">500 Tournois (Complet)</option>
+                    </select>
+                </div>
+
+                <button id="btn-run-comparison" class="btn-primary">COMPARER LES MODÈLES (RUN)</button>
+                <button id="btn-reset-comparison" class="btn-secondary">RÉINITIALISER (RESET)</button>
+            </section>
+
+            <!-- Right Panel: Results display -->
+            <section class="panel panel-display">
+                <h2 class="panel-title" id="comparison-display-title">> COMPARAISON CÔTE-À-CÔTE DES CHANCES DE TITRE</h2>
+                
+                <div class="tournament-results-container" style="overflow-y: auto; height: calc(100% - 40px); padding: 15px;">
+                    <div id="comparison-initial-msg" class="terminal-msg">
+                        CLIQUEZ SUR RUN POUR LANCER LES MULTIPLES SIMULATIONS SUR CHACUN DES 3 MODÈLES ET COMPARER LEURS PROBABILITÉS DE VICTOIRE FINALE.
+                    </div>
+                    
+                    <div id="comparison-content" style="display: none;">
+                        <!-- Visual comparison chart canvas -->
+                        <div style="margin-bottom: 25px; border: 1px solid var(--border-color); background: #050505; padding: 12px;">
+                            <h4 style="font-size: 9px; color: var(--bbg-amber); margin-bottom: 8px; text-transform: uppercase;">> GRAPHIQUE COMPARATIF DES CHANCES DE TITRE (TOP 5)</h4>
+                            <canvas id="comparison-chart" height="150" style="width: 100%; display: block;"></canvas>
+                            <div style="display: flex; justify-content: center; gap: 20px; font-size: 9px; margin-top: 8px; font-family: var(--font-mono);">
+                                <span style="color: #30d158;">■ DIXON-COLES</span>
+                                <span style="color: #0a84ff;">■ HISTORIQUE H2H</span>
+                                <span style="color: #ff9f0a;">■ FUSION HYBRIDE</span>
+                            </div>
+                        </div>
+
+                        <table class="terminal-table" id="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>NATION</th>
+                                    <th class="mono text-right" style="color: var(--bbg-amber);">DIXON-COLES</th>
+                                    <th class="mono text-right" style="color: var(--bbg-amber);">HISTORIQUE H2H</th>
+                                    <th class="mono text-right" style="color: var(--bbg-amber);">FUSION HYBRIDE</th>
+                                    <th class="mono text-right">ÉCART DELTA</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comparison-tbody"></tbody>
+                        </table>
+
+                        <div class="terminal-msg" style="margin-top: 25px; font-size: 11px; line-height: 1.5; border-top: 1px dashed var(--border-color); padding-top: 15px;">
+                            <span style="color: var(--bbg-amber); font-weight: bold;">ANALYSE MÉTHODOLOGIQUE DES MODÈLES :</span><br>
+                            - <strong>Modèle Dixon-Coles</strong> : Analyse l'attaque et la défense absolues des sélections basées sur les buts marqués et encaissés récents.<br>
+                            - <strong>Historique H2H (10 derniers matchs)</strong> : Valorise fortement la dynamique de forme récente et l'ascendant psychologique lors des confrontations directes directes entre deux pays.<br>
+                            - <strong>Fusion Hybride (Mix)</strong> : Combine la force théorique générale avec l'historique direct pour compenser les biais respectifs des deux approches.
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <main class="terminal-workspace terminal-workspace-hidden" id="view-betting">
+            <!-- Left Panel: Configurations & Odds inputs -->
+            <section class="panel panel-controls">
+                <h2 class="panel-title">> ASSISTANT DE VALUE BETTING</h2>
+                
+                <div class="control-group">
+                    <label for="select-betting-t1">ÉQUIPE DOMICILE (1)</label>
+                    <select id="select-betting-t1" class="terminal-select"></select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="select-betting-t2">ÉQUIPE EXTÉRIEUR (2)</label>
+                    <select id="select-betting-t2" class="terminal-select"></select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="select-betting-model">MODÈLE DE RÉFÉRENCE</label>
+                    <select id="select-betting-model" class="terminal-select">
+                        <option value="mix_ensemble" selected>Fusion Hybride (Ensemble)</option>
+                        <option value="dixon_coles_teams">Dixon-Coles (Force pure)</option>
+                        <option value="rolling_form">Rolling H2H (Forme/Confrontation)</option>
+                    </select>
+                </div>
+                
+                <button id="btn-sync-winamax-odds" class="btn-primary" style="width: 100%; margin-top: 10px; font-size: 10px; height: 26px;">SYNC COTES EN DIRECT (WINAMAX)</button>
+
+                <div style="border-top: 1px dashed var(--border-color); margin: 15px 0; padding-top: 15px;">
+                    <h3 style="font-size: 10px; color: var(--bbg-amber); margin-bottom: 12px; font-family: var(--font-mono);">> COTES DU BOOKMAKER</h3>
+                    
+                    <div class="control-group">
+                        <label for="input-odds-1">COTE VICTOIRE 1 (DOMICILE)</label>
+                        <input type="number" id="input-odds-1" class="terminal-input" step="0.01" min="1.01" placeholder="Ex: 2.10" style="width: 100%; border: 1px solid var(--border-color); background: #000; color: #fff; padding: 4px; font-family: var(--font-mono); font-size: 11px;">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="input-odds-N">COTE NUL N (DRAW)</label>
+                        <input type="number" id="input-odds-N" class="terminal-input" step="0.01" min="1.01" placeholder="Ex: 3.20" style="width: 100%; border: 1px solid var(--border-color); background: #000; color: #fff; padding: 4px; font-family: var(--font-mono); font-size: 11px;">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="input-odds-2">COTE VICTOIRE 2 (EXTÉRIEUR)</label>
+                        <input type="number" id="input-odds-2" class="terminal-input" step="0.01" min="1.01" placeholder="Ex: 3.50" style="width: 100%; border: 1px solid var(--border-color); background: #000; color: #fff; padding: 4px; font-family: var(--font-mono); font-size: 11px;">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Value Betting Dashboard -->
+            <section class="panel panel-display">
+                <h2 class="panel-title">> TABLEAU DE BORD DE VALUE BETTING</h2>
+                
+                <div class="tournament-results-container" style="overflow-y: auto; height: calc(100% - 40px); padding: 15px;">
+                    <table class="terminal-table">
+                        <thead>
+                            <tr>
+                                <th>RÉSULTAT</th>
+                                <th class="text-right">COTE BOOKMAKER</th>
+                                <th class="text-right">PROBABILITÉ MODÈLE</th>
+                                <th class="text-right" style="color: var(--bbg-amber);">COTE ÉQUITABLE (FAIR)</th>
+                                <th class="text-right">INDICE DE VALUE</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Victoire 1 (Domicile)</strong></td>
+                                <td id="val-book-1" class="mono text-right">-</td>
+                                <td id="val-prob-1" class="mono text-right">-</td>
+                                <td id="val-fair-1" class="mono text-right" style="color: var(--bbg-amber);">-</td>
+                                <td id="val-idx-1" class="mono text-right" style="font-weight: bold;">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Match Nul N</strong></td>
+                                <td id="val-book-N" class="mono text-right">-</td>
+                                <td id="val-prob-N" class="mono text-right">-</td>
+                                <td id="val-fair-N" class="mono text-right" style="color: var(--bbg-amber);">-</td>
+                                <td id="val-idx-N" class="mono text-right" style="font-weight: bold;">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Victoire 2 (Extérieur)</strong></td>
+                                <td id="val-book-2" class="mono text-right">-</td>
+                                <td id="val-prob-2" class="mono text-right">-</td>
+                                <td id="val-fair-2" class="mono text-right" style="color: var(--bbg-amber);">-</td>
+                                <td id="val-idx-2" class="mono text-right" style="font-weight: bold;">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Alert message for detected values -->
+                    <div id="betting-alert-container" style="margin-top: 20px;"></div>
+
+                    <div class="terminal-msg" style="margin-top: 25px; font-size: 11px; line-height: 1.5; border-top: 1px dashed var(--border-color); padding-top: 15px;">
+                        <span style="color: var(--bbg-amber); font-weight: bold;">QU'EST-CE QU'UN "VALUE BET" ?</span><br>
+                        Un <strong>Value Bet</strong> se produit lorsque la cote proposée par le bookmaker est supérieure à la cote théorique équitable calculée par notre modèle. Cela signifie que le marché sous-estime les chances réelles de l'équipe.<br><br>
+                        <strong>Règle de Décision :</strong><br>
+                        - Indice de Value <strong>positif (&gt; 0%)</strong> : Le pari est mathématiquement rentable à long terme.<br>
+                        - Indice de Value <strong>négatif (&lt; 0%)</strong> : Le bookmaker prend une marge trop importante (surestimation), le pari n'est pas rentable.
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <main class="terminal-workspace-full terminal-workspace-hidden" id="view-calendar">
+            <!-- Full width Panel: Calendar -->
+            <section class="panel" style="flex: 1; display: flex; flex-direction: column;">
+                <h2 class="panel-title">> CALENDRIER ET RÉSULTATS DE LA COUPE DU MONDE 2026</h2>
+                
+                <div class="calendar-controls" style="display: flex; gap: 15px; padding: 15px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.3); align-items: center;">
+                    <label for="select-calendar-filter" style="font-family: var(--font-mono); font-size: 11px; color: var(--bbg-amber); margin-bottom: 0;">FILTRER PAR PHASE :</label>
+                    <select id="select-calendar-filter" class="terminal-select" style="max-width: 250px; margin-bottom: 0; padding: 2px 6px; font-size: 11px; height: 24px;">
+                        <option value="all" selected>Toutes les phases</option>
+                        <option value="J1">Journée 1 (Poule)</option>
+                        <option value="J2">Journée 2 (Poule)</option>
+                        <option value="J3">Journée 3 (Poule - En cours)</option>
+                    </select>
+                    
+                    <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-left: auto;">
+                        Date simulée : <strong style="color: #fff;">2026-06-21 (Jour J)</strong>
+                    </span>
+                </div>
+                
+                <div class="tournament-results-container" style="overflow-y: auto; flex: 1; padding: 15px;">
+                    <div id="calendar-grid" class="calendar-grid">
+                        <!-- Populated dynamically by script.js -->
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="terminal-footer">
+            <span class="footer-left">BLOOMBERG TERMINAL CORE SERVICE v3.4.1</span>
+            <span class="footer-right">APPUYER SUR ESC POUR RETOURNER AU MENU</span>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
